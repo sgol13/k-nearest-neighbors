@@ -34,3 +34,5 @@
 # Local
 .vscode/
 exe
+task.pdf
+project/

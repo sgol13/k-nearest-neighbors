@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <ctime>
 #include <fstream>
 #include <functional>
@@ -12,10 +13,10 @@
 using namespace std;
 
 constexpr int N_FEATURES = 9;
-constexpr char TRAINING_DATASET_FILENAME[] = "training_dataset.txt";
-constexpr char VALIDATION_DATASET_FILENAME[] = "validation_dataset.txt";
-constexpr char NEGATIVE_RESULT[] = "lagodny";
-constexpr char POSITIVE_RESULT[] = "zlosliwy";
+constexpr char TRAINING_DATASET_FILENAME[] = "datasets/training_dataset.txt";
+constexpr char VALIDATION_DATASET_FILENAME[] = "datasets/validation_dataset.txt";
+constexpr char NEGATIVE_RESULT[] = "type1";
+constexpr char POSITIVE_RESULT[] = "type2";
 constexpr int N_DIGITS_DATA = 2;
 constexpr int N_RANDOM_RECORDS = 10;
 
@@ -35,23 +36,35 @@ class Record {
     // overloaded [] operator - returns value of a feature
     int operator[](int index) const;
 
+    int &operator[](int index);
+
+    // overloaded == operator - checks if all the records' values are equal
+    bool operator==(const Record &other) const;
+
     // returns a real result of a record
     bool realResult() const;
 
     // predicts a result using training dataset and a given metric function
-    bool predictResult(const vector<Record> &training_dataset, const int k_parameter,
-                       const function<int(const Record &, const Record &)> &metric);
+    bool
+    predictResult(const vector<Record> &training_dataset, const int k_parameter,
+                  const function<double(const Record &, const Record &)> &metric);
 
     // overloaded input stream operator
     friend istream &operator>>(istream &stream, Record &record);
 };
 
 // METRICS FUNCTIONS
-int euclideanDistance(const Record &x, const Record &y);
+double euclideanDistance(const Record &x, const Record &y);
 
-int manhattanDistance(const Record &x, const Record &y);
+double manhattanDistance(const Record &x, const Record &y);
 
-int chebyshevDistance(const Record &x, const Record &y);
+double chebyshevDistance(const Record &x, const Record &y);
+
+double railwayDistance(const Record &x, const Record &y);
+
+double hammingDistance(const Record &x, const Record &y);
+
+double correlationDistance(const Record &x, const Record &y);
 
 // OTHER GLOBAL FUNCTIONS
 
@@ -69,12 +82,16 @@ int main() {
     srand(time(nullptr));
 
     // validation tests for a given dataset
-    const vector<pair<const function<int(const Record &, const Record &)>, const string>>
-        metrics = {make_pair(euclideanDistance, "Euklidesowa"),
+    const vector<
+        pair<const function<double(const Record &, const Record &)>, const string>>
+        metrics = {make_pair(euclideanDistance, "Euclidean"),
                    make_pair(manhattanDistance, "Manhattan"),
-                   make_pair(chebyshevDistance, "Czebyszewa")};
+                   make_pair(chebyshevDistance, "Chebyshev"),
+                   make_pair(railwayDistance, "Railway"),
+                   make_pair(hammingDistance, "Hamming"),
+                   make_pair(correlationDistance, "Correlation")};
 
-    const vector<int> k_values = {1, 3, 5, 7, 9};
+    const vector<int> k_values = {1, 3, 5, 7, 9, 11, 13, 15, 17};
 
     vector<Record> training_dataset;
     vector<Record> validation_dataset;
@@ -83,19 +100,20 @@ int main() {
 
     // check if files were correctly read
     if (correct_file_1 == false) {
-        cout << "Nie mozna przeczytac pliku " << TRAINING_DATASET_FILENAME << endl;
+        cout << "Cannot read file " << TRAINING_DATASET_FILENAME << endl;
         return 1;
     }
 
     if (correct_file_2 == false) {
-        cout << "Nie mozna przeczytac pliku " << VALIDATION_DATASET_FILENAME << endl;
+        cout << "Cannot read file " << VALIDATION_DATASET_FILENAME << endl;
         return 2;
     }
 
     // tests for a given dataset
-    cout << "              ";
-    for (auto &k : k_values)
-        cout << "   K = " << k;
+    cout << "\n              ";
+    for (auto &k : k_values) {
+        cout << "  K = " << left << setw(2) << k;
+    }
     cout << endl;
 
     cout << fixed << setprecision(2);
@@ -110,18 +128,19 @@ int main() {
 
                 bool predicted_result =
                     record.predictResult(training_dataset, k, metric.first);
-                if (predicted_result != record.realResult())
+                if (predicted_result != record.realResult()) {
                     incorrectly_classified++;
+                }
             }
 
-            double e =
-                100 * (double)incorrectly_classified / (double)validation_dataset.size();
+            double e = 100 * (double)incorrectly_classified /
+                       (double)validation_dataset.size();
 
             cout << setw(7) << right << e << "%";
         }
         cout << endl;
     }
-    cout << "\n\n";
+    cout << "\n";
 
     // calculating feature ranges
     array<int, N_FEATURES> min_range{};
@@ -138,36 +157,26 @@ int main() {
         }
     }
 
-    // validation tests for randomly generated records
-    vector<Record> random_records;
-    for (int i = 0; i < N_RANDOM_RECORDS; i++)
-        random_records.push_back(Record(min_range, max_range));
-
-    cout << "   Manhattan   K = 3\n";
-    for (int i = 0; i < N_RANDOM_RECORDS; i++) {
-
-        cout << setw(3) << left << i + 1;
-        cout << random_records[i] << " -> ";
-        bool classification_result =
-            random_records[i].predictResult(training_dataset, 3, metrics[1].first);
-        if (classification_result)
-            cout << POSITIVE_RESULT << endl;
-        else
-            cout << NEGATIVE_RESULT << endl;
-    }
-
     return 0;
 }
 
 // RECORD CLASS
 // default constructor
 Record::Record() : result(false) {
+
     for (int i = 0; i < N_FEATURES; i++)
         features[i] = 0;
 }
 
 // overloaded [] operator - returns value of a feature
 int Record::operator[](int index) const { return features[index]; }
+
+int &Record::operator[](int index) { return features[index]; }
+
+// overloaded == operator - checks if all the records' values are equal
+bool Record::operator==(const Record &other) const {
+    return features == other.features;
+}
 
 // returns a real result of a record
 bool Record::realResult() const { return result; }
@@ -192,14 +201,15 @@ Record::Record(const array<int, N_FEATURES> &min_range,
 }
 
 // predicts a result using training dataset and a given metric function
-bool Record::predictResult(const vector<Record> &training_dataset, const int k_parameter,
-                           const function<int(const Record &, const Record &)> &metric) {
+bool Record::predictResult(
+    const vector<Record> &training_dataset, const int k_parameter,
+    const function<double(const Record &, const Record &)> &metric) {
 
     // calculate distances for all records from a training dataset
-    vector<pair<int, bool>> distances;
-    for (int i = 0; i < training_dataset.size(); i++) {
+    vector<pair<double, bool>> distances;
+    for (int i = 0; i < (int)training_dataset.size(); i++) {
 
-        int dist = metric(*this, training_dataset[i]);
+        double dist = metric(*this, training_dataset[i]);
         distances.push_back(make_pair(dist, training_dataset[i].realResult()));
     }
 
@@ -208,8 +218,9 @@ bool Record::predictResult(const vector<Record> &training_dataset, const int k_p
 
     int positive_counter = 0;
     for (int i = 0; i < min(k_parameter, static_cast<int>(distances.size())); i++) {
-        if (distances[i].second == true)
+        if (distances[i].second) {
             positive_counter++;
+        }
     }
 
     // return a prevailing result
@@ -217,30 +228,31 @@ bool Record::predictResult(const vector<Record> &training_dataset, const int k_p
 }
 
 // METRICS FUNCTIONS
-int euclideanDistance(const Record &x, const Record &y) {
+double euclideanDistance(const Record &x, const Record &y) {
 
-    int sum = 0, difference;
+    double sum = 0, difference;
     for (int i = 0; i < N_FEATURES; i++) {
 
         difference = x[i] - y[i];
         sum += difference * difference;
     }
 
-    return sum;
+    return sqrt(sum);
 }
 
-int manhattanDistance(const Record &x, const Record &y) {
+double manhattanDistance(const Record &x, const Record &y) {
 
-    int sum = 0;
-    for (int i = 0; i < N_FEATURES; i++)
+    double sum = 0;
+    for (int i = 0; i < N_FEATURES; i++) {
         sum += abs(x[i] - y[i]);
+    }
 
     return sum;
 }
 
-int chebyshevDistance(const Record &x, const Record &y) {
+double chebyshevDistance(const Record &x, const Record &y) {
 
-    int maximum = 0, abs_difference;
+    double maximum = 0, abs_difference;
     for (int i = 0; i < N_FEATURES; i++) {
 
         abs_difference = abs(x[i] - y[i]);
@@ -250,12 +262,74 @@ int chebyshevDistance(const Record &x, const Record &y) {
     return maximum;
 }
 
+double railwayDistance(const Record &x, const Record &y) {
+
+    if (x == y) {
+        return 0;
+    }
+
+    int sumX = 0, sumY = 0;
+    for (int i = 0; i < N_FEATURES; i++) {
+
+        sumX += x[i] * x[i];
+        sumY += y[i] * y[i];
+    }
+
+    return sqrt(sumX) + sqrt(sumY);
+}
+
+double hammingDistance(const Record &x, const Record &y) {
+
+    int counter = 0;
+    for (int i = 0; i < N_FEATURES; i++) {
+        if (x[i] != y[1]) {
+            counter++;
+        }
+    }
+
+    return (double)counter;
+}
+
+double correlationDistance(const Record &x, const Record &y) {
+
+    double sumX = 0, sumY = 0;
+    for (int i = 0; i < N_FEATURES; i++) {
+
+        sumX += x[i];
+        sumY += y[i];
+    }
+
+    double meanX = sumX / N_FEATURES;
+    double meanY = sumY / N_FEATURES;
+
+    Record xc, yc;
+    for (int i = 0; i < N_FEATURES; i++) {
+
+        xc[i] = x[i] - meanX;
+        yc[i] = y[i] - meanY;
+    }
+
+    double dot_product = 0, sumXC_2 = 0, sumYC_2 = 0;
+    for (int i = 0; i < N_FEATURES; i++) {
+
+        dot_product += xc[i] * yc[i];
+        sumXC_2 += xc[i] * xc[i];
+        sumYC_2 += yc[i] * yc[i];
+    }
+
+    double standard_deviation_X = sqrt(sumXC_2 / N_FEATURES);
+    double standard_deviation_Y = sqrt(sumYC_2 / N_FEATURES);
+
+    return dot_product / (standard_deviation_X * standard_deviation_Y);
+}
+
 // OTHER GLOBAL FUNCTIONS
 // overloaded input stream operator
 istream &operator>>(istream &stream, Record &record) {
 
-    for (int i = 0; i < N_FEATURES; i++)
+    for (int i = 0; i < N_FEATURES; i++) {
         stream >> record.features[i];
+    }
 
     string result_name;
     stream >> result_name;
@@ -271,8 +345,10 @@ istream &operator>>(istream &stream, Record &record) {
 ostream &operator<<(ostream &stream, const Record &record) {
 
     stream << "[";
-    for (int i = 0; i < N_FEATURES - 1; i++)
+    for (int i = 0; i < N_FEATURES - 1; i++) {
         stream << setw(N_DIGITS_DATA) << record[i] << "|";
+    }
+
     stream << setw(N_DIGITS_DATA) << record[N_FEATURES - 1] << "]";
 
     return stream;
@@ -287,8 +363,9 @@ bool readData(const char filename[], vector<Record> &input_records) {
 
     if (input_file.good()) {
 
-        while (input_file >> new_record)
+        while (input_file >> new_record) {
             input_records.push_back(new_record);
+        }
 
         input_file.close();
         return true;
