@@ -18,8 +18,8 @@ In the listing below you can the algorithms results for various combinations of 
 ```
 git clone https://github.com/sgol13/k-nearest-neighbors.git
 cd k-nearest-neighbors
-g++ -o classificator main.cpp
-./classificator
+g++ -o classifier main.cpp
+./classifier
 ```
 
 ## License
