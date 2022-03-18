@@ -1,7 +1,7 @@
 # K-nearest neighbors
 This program is an implementation of a [k-nearest neighbors algorithm](https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm). The algorithm is applied to an exemplary dataset (medical data concerning cancer types) to test its performance in practice.
 
-In the listing below you can the algorithms results for various combinations of metrics and K values. Numbers indicate the percentage of wrong test results. Hence, the lower the number, the more accurate the classifier is.
+In the listing below you can observe the algorithms performance for various combinations of metrics and K values. Numbers indicate the percentage of wrong test results. Hence, the lower the number, the more accurate the classifier is.
 
 ```
                 K = 1   K = 3   K = 5   K = 7   K = 9   K = 11  K = 13  K = 15  K = 17
